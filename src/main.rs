@@ -4,7 +4,9 @@ use clap::{Parser, Subcommand};
 use eyre::{Result, eyre};
 use sentry::{
     ClientInitGuard, Transport, TransportFactory, TransportOptions,
-    integrations::tracing::ErrorLayer, transports::ReqwestHttpTransportOptions,
+    integrations::tracing::ErrorLayer,
+    transports::ReqwestHttpTransportOptions,
+    types::{Dsn, Scheme},
 };
 use tracing_subscriber::{
     filter::{FilterExt, LevelFilter, filter_fn},
@@ -68,6 +70,18 @@ const SENTRY_TIMEOUT: Duration = Duration::from_secs(2);
 
 struct TimedSentryTransport(reqwest::Client);
 
+impl TimedSentryTransport {
+    fn new(builder: reqwest::ClientBuilder) -> Result<Self, reqwest::Error> {
+        builder
+            .timeout(SENTRY_TIMEOUT)
+            .https_only(true)
+            .tls_danger_accept_invalid_certs(false)
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map(Self)
+    }
+}
+
 impl TransportFactory for TimedSentryTransport {
     fn create_transport_with_options(&self, options: TransportOptions) -> Arc<dyn Transport> {
         Arc::new(
@@ -81,13 +95,12 @@ impl TransportFactory for TimedSentryTransport {
 fn init_sentry() -> Option<ClientInitGuard> {
     let dsn = std::env::var("SENTRY_DSN")
         .ok()?
-        .parse::<sentry::types::Dsn>()
-        .ok()?;
+        .trim()
+        .parse::<Dsn>()
+        .ok()
+        .filter(|dsn| dsn.scheme() == Scheme::Https)?;
     // The SDK joins its transport worker on shutdown. Bound the in-flight HTTP request too.
-    let client = reqwest::Client::builder()
-        .timeout(SENTRY_TIMEOUT)
-        .build()
-        .ok()?;
+    let transport = TimedSentryTransport::new(reqwest::Client::builder()).ok()?;
     let guard = sentry::init(
         sentry::ClientOptions::from(dsn)
             .maybe_release(
@@ -98,7 +111,7 @@ fn init_sentry() -> Option<ClientInitGuard> {
             .default_integrations(false)
             .send_default_pii(false)
             .shutdown_timeout(SENTRY_TIMEOUT)
-            .transport(TimedSentryTransport(client)),
+            .transport(transport),
     );
     // Send fixed diagnostics from the CLI. Keep structured error details in the job output.
     let diagnostics = filter_fn(|metadata| {

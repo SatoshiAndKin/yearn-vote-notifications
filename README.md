@@ -48,8 +48,9 @@ The process returns nonzero for source, delivery, or heartbeat failures. It send
 Inject `SENTRY_DSN` from a private CronJob secret to report failed runs to the
 `yearn-vote-notifications` project in Satoshi Kin Inc. Sentry receives a fixed
 error message, tracing location, and the release identity. Use the job logs
-for failure details. Sentry requests time out after two seconds. Preview and
-test notifications send no Sentry events.
+for failure details. Requests use the configured HTTPS endpoint with certificate
+verification, a two-second timeout, and redirects disabled. Preview and test
+notifications send no Sentry events.
 
 ## Deployment
 
