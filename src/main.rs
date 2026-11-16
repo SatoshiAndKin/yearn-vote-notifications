@@ -1,7 +1,15 @@
-use std::{path::PathBuf, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use clap::{Parser, Subcommand};
 use eyre::{Result, eyre};
+use sentry::{
+    ClientInitGuard, Transport, TransportFactory, TransportOptions,
+    integrations::tracing::ErrorLayer, transports::ReqwestHttpTransportOptions,
+};
+use tracing_subscriber::{
+    filter::{FilterExt, LevelFilter, filter_fn},
+    prelude::*,
+};
 use yearn_vote_notifications::{http::Sources, model::Notification, poll};
 
 #[derive(Parser)]
@@ -46,39 +54,62 @@ enum Command {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    let sentry = if matches!(args.command, Command::PollOnce) {
-        init_sentry()
-    } else {
-        None
-    };
-    let result = run(args).await;
-    if sentry.is_some() && result.is_err() {
-        sentry::capture_message("Yearn governance poll failed", sentry::Level::Error);
-    }
-    result
+    let sentry = matches!(args.command, Command::PollOnce)
+        .then(init_sentry)
+        .flatten();
+    run(args).await.inspect_err(|_| {
+        if sentry.is_some() {
+            tracing::error!("Yearn governance poll failed");
+        }
+    })
 }
 
-fn init_sentry() -> Option<sentry::ClientInitGuard> {
-    let dsn = std::env::var("SENTRY_DSN").ok()?;
-    let dsn = dsn.trim();
-    if dsn.is_empty() {
-        return None;
-    }
-    let Ok(dsn) = dsn.parse::<sentry::types::Dsn>() else {
-        eprintln!("Invalid SENTRY_DSN. Sentry is disabled.");
-        return None;
-    };
-    let mut options = sentry::ClientOptions::new()
-        .maybe_release(
-            option_env!("YEARN_BUILD_REVISION")
-                .filter(|revision| !revision.is_empty())
-                .map(|revision| format!("yearn-vote-notifications@{revision}")),
+const SENTRY_TIMEOUT: Duration = Duration::from_secs(2);
+
+struct TimedSentryTransport(reqwest::Client);
+
+impl TransportFactory for TimedSentryTransport {
+    fn create_transport_with_options(&self, options: TransportOptions) -> Arc<dyn Transport> {
+        Arc::new(
+            ReqwestHttpTransportOptions::from(options)
+                .with_client(self.0.clone())
+                .build(),
         )
-        .default_integrations(false)
-        .send_default_pii(false)
-        .shutdown_timeout(Duration::from_secs(2));
-    options.dsn = Some(dsn);
-    Some(sentry::init(options))
+    }
+}
+
+fn init_sentry() -> Option<ClientInitGuard> {
+    let dsn = std::env::var("SENTRY_DSN")
+        .ok()?
+        .parse::<sentry::types::Dsn>()
+        .ok()?;
+    // The SDK joins its transport worker on shutdown. Bound the in-flight HTTP request too.
+    let client = reqwest::Client::builder()
+        .timeout(SENTRY_TIMEOUT)
+        .build()
+        .ok()?;
+    let guard = sentry::init(
+        sentry::ClientOptions::from(dsn)
+            .maybe_release(
+                option_env!("YEARN_BUILD_REVISION")
+                    .filter(|revision| !revision.is_empty())
+                    .map(|revision| format!("{}@{revision}", env!("CARGO_PKG_NAME"))),
+            )
+            .default_integrations(false)
+            .send_default_pii(false)
+            .shutdown_timeout(SENTRY_TIMEOUT)
+            .transport(TimedSentryTransport(client)),
+    );
+    // Send fixed diagnostics from the CLI. Keep structured error details in the job output.
+    let diagnostics = filter_fn(|metadata| {
+        metadata.target() == env!("CARGO_CRATE_NAME")
+            && metadata.fields().len() == 1
+            && metadata.fields().field("message").is_some()
+    });
+    tracing_subscriber::registry()
+        .with(ErrorLayer::new().with_filter(LevelFilter::WARN.and(diagnostics)))
+        .init();
+    Some(guard)
 }
 
 async fn run(args: Args) -> Result<()> {
