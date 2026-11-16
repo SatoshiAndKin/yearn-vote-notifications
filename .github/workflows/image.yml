@@ -22,6 +22,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64
+          build-args: BUILD_REVISION=${{ github.sha }}
           push: true
           tags: ghcr.io/satoshiandkin/yearn-vote-notifications:sha-${{ github.sha }}
           labels: |

@@ -36,6 +36,8 @@ The token file must contain an ntfy token for an account allowed to publish to t
 | `NTFY_TOPIC` | `yearn-votes` |
 | `NTFY_TOKEN_FILE` | Required for publishing; path to the token file |
 | `HEALTHCHECK_URL_FILE` | Optional path to a private Uptime Kuma push URL |
+| `SENTRY_DSN` | Optional Sentry project DSN for failed `poll-once` runs |
+| `SENTRY_ENVIRONMENT` | Optional Sentry environment. Release builds default to `production`. |
 
 Sources are fetched concurrently with bounded HTTP requests and retries. Each source has independent state. A failed source preserves its checkpoint while the other can still send alerts. SQLite operations run through Tokio `spawn_blocking`; network requests run outside transactions.
 
@@ -43,9 +45,15 @@ Pending notifications persist until ntfy returns a matching delivery receipt. Wi
 
 The process returns nonzero for source, delivery, or heartbeat failures. It sends an Up heartbeat only after both sources and all deliveries succeed, or Down when a completed poll reports errors. The external monitor detects crashes and missing runs.
 
+Inject `SENTRY_DSN` from a private CronJob secret to report failed runs to the
+`yearn-vote-notifications` project in Satoshi Kin Inc. Sentry receives a fixed
+error message and the release identity. Use the job logs for failure details.
+Preview and test notifications send no Sentry events.
+
 ## Deployment
 
-CI validates pull requests. Main builds publish an image tagged with the full commit to GHCR. Production uses its immutable image digest.
+CI validates pull requests. Main builds publish an image tagged with the full commit to GHCR. Production uses its immutable image digest. The build records the full commit
+in the Sentry release as `yearn-vote-notifications@<commit>`.
 
 The private infrastructure controller owns the CronJob, retained PVC, restricted publisher Secret, monitoring, release records, and rollback. The schedule is:
 

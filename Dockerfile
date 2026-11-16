@@ -3,7 +3,8 @@ WORKDIR /app
 ENV CARGO_BUILD_JOBS=2
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
-RUN cargo build --release --locked
+ARG BUILD_REVISION
+RUN YEARN_BUILD_REVISION="$BUILD_REVISION" cargo build --release --locked
 
 FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
 COPY --from=build /etc/ssl/certs/ /etc/ssl/certs/

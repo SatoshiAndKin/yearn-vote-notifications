@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 use clap::{Parser, Subcommand};
 use eyre::{Result, eyre};
@@ -46,6 +46,42 @@ enum Command {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    let sentry = if matches!(args.command, Command::PollOnce) {
+        init_sentry()
+    } else {
+        None
+    };
+    let result = run(args).await;
+    if sentry.is_some() && result.is_err() {
+        sentry::capture_message("Yearn governance poll failed", sentry::Level::Error);
+    }
+    result
+}
+
+fn init_sentry() -> Option<sentry::ClientInitGuard> {
+    let dsn = std::env::var("SENTRY_DSN").ok()?;
+    let dsn = dsn.trim();
+    if dsn.is_empty() {
+        return None;
+    }
+    let Ok(dsn) = dsn.parse::<sentry::types::Dsn>() else {
+        eprintln!("Invalid SENTRY_DSN. Sentry is disabled.");
+        return None;
+    };
+    let mut options = sentry::ClientOptions::new()
+        .maybe_release(
+            option_env!("YEARN_BUILD_REVISION")
+                .filter(|revision| !revision.is_empty())
+                .map(|revision| format!("yearn-vote-notifications@{revision}")),
+        )
+        .default_integrations(false)
+        .send_default_pii(false)
+        .shutdown_timeout(Duration::from_secs(2));
+    options.dsn = Some(dsn);
+    Some(sentry::init(options))
+}
+
+async fn run(args: Args) -> Result<()> {
     let preview = matches!(args.command, Command::Preview);
     let token = if preview {
         None
