@@ -1,5 +1,13 @@
 #!/bin/sh
 set -eu
+scripts=$(dirname -- "$0")
+expected=$(python3 -B "$scripts/check_toolchain.py")
+actual=$(rustc --version --verbose | sed -n 's/^release: //p')
+if [ "$actual" != "$expected" ]; then
+    printf 'Local Rust compiler mismatch: expected %s, got %s\n' "$expected" "$actual" >&2
+    exit 1
+fi
+PYTHONDONTWRITEBYTECODE=1 python3 "$scripts/test_toolchain.py"
 cargo fmt --all -- --check
 cargo clippy --locked --all-targets -- -D warnings
 if cargo nextest --version >/dev/null 2>&1; then

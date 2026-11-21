@@ -14,7 +14,8 @@ The built-in DAO deployment identity and timing follow Yearn's current mainnet V
 
 ## Run
 
-Install the pinned Rust toolchain with rustup. Run these commands from the repository:
+Install the pinned Rust toolchain with rustup. Local validation also uses Python 3.11 or
+newer. Run these commands from the repository:
 
 ```sh
 scripts/validate
@@ -53,6 +54,18 @@ verification, a two-second timeout, and redirects disabled. Preview and test
 notifications send no Sentry events.
 
 ## Deployment
+
+Required CI compares the exact Rust version in `rust-toolchain.toml` with the
+digest-pinned builder in `Dockerfile`, and the image build verifies the real
+compiler. Update both in one PR. Debian digest updates stay independent.
+
+The [Renovate preview](.github/workflows/renovate.yml) is manual and read-only
+on the default branch; nothing currently writes Renovate PRs. Before enabling
+writes, install a dedicated GitHub App only on this repository and prove its
+configuration and normal PR access. Then transfer only these two Rust version
+pins in a reviewed change; keep Dependabot enabled until that proof. Keep one
+owner for unchanged-tag Rust digest refreshes, and leave Debian, Cargo, GitHub
+Actions updates and vulnerability monitoring unchanged.
 
 CI validates pull requests. Main builds publish an image tagged with the full commit to GHCR. Production uses its immutable image digest. The build records the full commit
 in the Sentry release as `yearn-vote-notifications@<commit>`.
