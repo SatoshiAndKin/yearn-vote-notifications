@@ -1,7 +1,9 @@
 """Verify matching and drifting Rust toolchain pins without installing Rust."""
 
+import re
 import unittest
 
+import assemble_dockerfile as dockerfile
 from check_toolchain import check
 
 VERSION = "1.100.0"
@@ -12,11 +14,37 @@ RUNTIME = f"FROM debian:bookworm-slim@sha256:{DIGEST}\n"
 
 
 class ToolchainCheck(unittest.TestCase):
-    def test_check_matches_builder_and_ignores_runtime(self):
-        self.assertEqual(check(TOOLCHAIN, IMAGE + RUNTIME), VERSION)
+    def test_check_matches_builder(self):
+        self.assertEqual(check(TOOLCHAIN, IMAGE), VERSION)
+
+    def test_independent_debian_digest_update(self):
+        runtime = (dockerfile.ROOT / dockerfile.RUNTIME).read_text()
+        builder = (dockerfile.ROOT / dockerfile.BUILDER).read_text()
+        pin = re.search(r"^FROM debian:[^@\s]+@sha256:([0-9a-f]{64})$", runtime, re.M)
+        self.assertIsNotNone(pin)
+        old_digest = pin[1]
+        new_digest = ("b" if old_digest == "a" * 64 else "a") * 64
+        updated = runtime.replace(old_digest, new_digest)
         self.assertEqual(
-            check(TOOLCHAIN, IMAGE + RUNTIME.replace("bookworm", "trixie")), VERSION
+            dockerfile.assemble(builder, updated),
+            dockerfile.assemble(builder, runtime).replace(old_digest, new_digest),
         )
+        self.assertNotIn(old_digest, builder)
+
+    def test_assembly_joins_real_builder_and_runtime(self):
+        builder = (dockerfile.ROOT / dockerfile.BUILDER).read_text()
+        runtime = (dockerfile.ROOT / dockerfile.RUNTIME).read_text()
+        product = dockerfile.assemble(builder, runtime)
+        self.assertEqual(
+            product, builder + "\n" + runtime.removeprefix(dockerfile.RUNTIME_PLACEHOLDER)
+        )
+        self.assertNotIn(dockerfile.RUNTIME_PLACEHOLDER, product)
+        self.assertEqual(product.count(" AS build\n"), 1)
+        self.assertIn("COPY --from=build /app/target/release/yearn-vote-notifications", product)
+
+    def test_assembly_rejects_missing_placeholder(self):
+        with self.assertRaisesRegex(ValueError, "empty build stage"):
+            dockerfile.assemble(IMAGE, RUNTIME)
 
     def test_each_independent_bump_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Rust pins differ"):

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 scripts=$(dirname -- "$0")
-expected=$(python3 "$scripts/check_toolchain.py")
+expected=$(python3 -B "$scripts/check_toolchain.py")
 actual=$(rustc --version --verbose | sed -n 's/^release: //p')
 if [ "$actual" != "$expected" ]; then
     printf 'Local Rust compiler mismatch: expected %s, got %s\n' "$expected" "$actual" >&2

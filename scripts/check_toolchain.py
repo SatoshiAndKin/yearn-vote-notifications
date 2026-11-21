@@ -3,7 +3,8 @@
 import re
 import sys
 import tomllib
-from pathlib import Path
+
+from assemble_dockerfile import BUILDER, ROOT
 
 STABLE_VERSION = r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
 BUILD_FROM = re.compile(
@@ -34,11 +35,10 @@ def check(toolchain: str, dockerfile: str) -> str:
 
 
 def main() -> None:
-    root = Path(__file__).resolve().parents[1]
     try:
         version = check(
-            (root / "rust-toolchain.toml").read_text(),
-            (root / "Dockerfile").read_text(),
+            (ROOT / "rust-toolchain.toml").read_text(),
+            (ROOT / BUILDER).read_text(),
         )
     except (OSError, ValueError) as error:
         sys.exit(f"Rust toolchain check: {error}")
