@@ -1,0 +1,90 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "enabledManagers": [
+    "dockerfile",
+    "rust-toolchain"
+  ],
+  "automerge": false,
+  "dependencyDashboard": {
+    "enabled": false
+  },
+  "packageRules": [
+    {
+      "matchPackageNames": [
+        "*"
+      ],
+      "enabled": false
+    },
+    {
+      "matchManagers": [
+        "rust-toolchain"
+      ],
+      "matchFileNames": [
+        "/^rust-toolchain\\.toml$/"
+      ],
+      "matchPackageNames": [
+        "rust"
+      ],
+      "allowedVersions": "/^\\d+\\.\\d+\\.\\d+$/",
+      "enabled": true
+    },
+    {
+      "matchManagers": [
+        "dockerfile"
+      ],
+      "matchFileNames": [
+        "/^Dockerfile$/"
+      ],
+      "matchDepTypes": [
+        "stage"
+      ],
+      "matchPackageNames": [
+        "rust"
+      ],
+      "allowedVersions": "/^\\d+\\.\\d+\\.\\d+-slim-bookworm$/",
+      "pinDigests": true,
+      "enabled": true
+    },
+    {
+      "matchManagers": [
+        "rust-toolchain"
+      ],
+      "matchFileNames": [
+        "/^rust-toolchain\\.toml$/"
+      ],
+      "matchPackageNames": [
+        "rust"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch"
+      ],
+      "groupName": "Paired rust {{{replace '^v' '' newVersion}}}",
+      "groupSingleUpdates": true,
+      "minimumGroupSize": 2
+    },
+    {
+      "matchManagers": [
+        "dockerfile"
+      ],
+      "matchFileNames": [
+        "/^Dockerfile$/"
+      ],
+      "matchDepTypes": [
+        "stage"
+      ],
+      "matchPackageNames": [
+        "rust"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch"
+      ],
+      "groupName": "Paired rust {{{replace '^v' '' newVersion}}}",
+      "groupSingleUpdates": true,
+      "minimumGroupSize": 2
+    }
+  ]
+}

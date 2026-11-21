@@ -1,49 +1,35 @@
-"""Check the immutable Docker Rust builder matches rust-toolchain.toml."""
+"""Check that the official, immutable Docker builder matches native Rust."""
 
 import re
 import sys
 import tomllib
+from pathlib import Path
 
-from assemble_dockerfile import BUILDER, ROOT
-
-STABLE_VERSION = r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
-BUILD_FROM = re.compile(
-    r"^\s*FROM[ \t]+(?:--platform=\S+[ \t]+)?(\S+)[ \t]+AS[ \t]+build[ \t]*$",
+ROOT = Path(__file__).resolve().parents[1]
+VERSION = r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
+FROM = re.compile(
+    r"^[ \t]*FROM[ \t]+(?:--platform=\S+[ \t]+)?(\S+)(?:[ \t]+AS[ \t]+(\S+))?",
     re.IGNORECASE | re.MULTILINE,
 )
-RUST_IMAGE = re.compile(
-    rf"(?:docker\.io/library/)?rust:({STABLE_VERSION})"
-    r"(?:-[A-Za-z0-9][A-Za-z0-9_.-]*)?@sha256:[0-9a-f]{64}"
-)
+RUST = r"(?:(?:docker\.io/)?library/)?rust"
 
 
 def check(toolchain: str, dockerfile: str) -> str:
     config = tomllib.loads(toolchain).get("toolchain", {})
     version = config.get("channel") if isinstance(config, dict) else None
-    if not isinstance(version, str) or not re.fullmatch(STABLE_VERSION, version):
+    if not isinstance(version, str) or not re.fullmatch(VERSION, version):
         raise ValueError("rust-toolchain.toml must pin an exact stable Rust version")
-    bases = BUILD_FROM.findall(dockerfile)
-    image = RUST_IMAGE.fullmatch(bases[0]) if len(bases) == 1 else None
-    if image is None:
-        raise ValueError("Dockerfile must have one digest-pinned official Rust build stage")
-    if image[1] != version:
-        raise ValueError(
-            f"Rust pins differ: rust-toolchain.toml is {version}, Docker is {image[1]}; "
-            "update both in one pull request"
-        )
+    refs = [(image, stage) for image, stage in FROM.findall(dockerfile)
+            if stage.lower() == "build" or re.match(rf"^{RUST}(?:[:@]|$)", image)]
+    if len(refs) != 1 or not re.fullmatch(
+        rf"{RUST}:{re.escape(version)}-slim-bookworm@sha256:[a-f0-9]{{64}}", refs[0][0]
+    ) or refs[0][1].lower() != "build":
+        raise ValueError(f"Expected one digest-pinned official Rust build stage matching {version}")
     return version
 
 
-def main() -> None:
+if __name__ == "__main__":
     try:
-        version = check(
-            (ROOT / "rust-toolchain.toml").read_text(),
-            (ROOT / BUILDER).read_text(),
-        )
+        print(check((ROOT / "rust-toolchain.toml").read_text(), (ROOT / "Dockerfile").read_text()))
     except (OSError, ValueError) as error:
         sys.exit(f"Rust toolchain check: {error}")
-    print(version)
-
-
-if __name__ == "__main__":
-    main()

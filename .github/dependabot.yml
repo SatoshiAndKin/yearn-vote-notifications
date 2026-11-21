@@ -1,10 +1,4 @@
 version: 2
-
-multi-ecosystem-groups:
-  rust-compiler:
-    open-pull-requests-limit: 3
-    schedule:
-      interval: weekly
 updates:
   - package-ecosystem: cargo
     directory: /
@@ -16,12 +10,11 @@ updates:
 
   - package-ecosystem: rust-toolchain
     directory: /
-    patterns: [rust-toolchain]
-    multi-ecosystem-group: rust-compiler
     schedule:
       interval: weekly
     cooldown:
       default-days: 3
+    open-pull-requests-limit: 3
 
   - package-ecosystem: docker
     directory: /
@@ -30,14 +23,6 @@ updates:
     cooldown:
       default-days: 3
     open-pull-requests-limit: 3
-
-  # Separate from the root Docker entry, which still updates Debian independently.
-  - package-ecosystem: docker
-    directory: /docker/build
-    patterns: [rust]
-    multi-ecosystem-group: rust-compiler
-    cooldown:
-      default-days: 3
 
   - package-ecosystem: github-actions
     directory: /

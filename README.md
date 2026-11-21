@@ -55,18 +55,17 @@ notifications send no Sentry events.
 
 ## Deployment
 
-Dependabot groups `rust-toolchain.toml` with the digest-pinned Rust image in
-`docker/build/Dockerfile`. CI rejects a one-sided update, and the image build
-verifies the actual compiler without downloading another toolchain. The root
-`Dockerfile` describes the independently updated Debian runtime. CI assembles
-the two files into the original multi-stage build before invoking Buildx.
-To build the same image locally:
+Required CI compares the exact Rust version in `rust-toolchain.toml` with the
+digest-pinned builder in `Dockerfile`, and the image build verifies the real
+compiler. Update both in one PR. Debian digest updates stay independent.
 
-```sh
-python3 scripts/assemble_dockerfile.py | docker buildx build --file - \
-  --platform linux/amd64 --load -t yearn-vote-notifications:local \
-  --build-arg BUILD_REVISION="$(git rev-parse HEAD)" .
-```
+The [Renovate preview](.github/workflows/renovate.yml) is manual and read-only
+on the default branch; nothing currently writes Renovate PRs. Before enabling
+writes, install a dedicated GitHub App only on this repository and prove its
+configuration and normal PR access. Then transfer only these two Rust version
+pins in a reviewed change; keep Dependabot enabled until that proof. Keep one
+owner for unchanged-tag Rust digest refreshes, and leave Debian, Cargo, GitHub
+Actions updates and vulnerability monitoring unchanged.
 
 CI validates pull requests. Main builds publish an image tagged with the full commit to GHCR. Production uses its immutable image digest. The build records the full commit
 in the Sentry release as `yearn-vote-notifications@<commit>`.
