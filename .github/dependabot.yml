@@ -2,6 +2,7 @@ version: 2
 
 multi-ecosystem-groups:
   rust-compiler:
+    open-pull-requests-limit: 3
     schedule:
       interval: weekly
 updates:
@@ -21,7 +22,6 @@ updates:
       interval: weekly
     cooldown:
       default-days: 3
-    open-pull-requests-limit: 3
 
   - package-ecosystem: docker
     directory: /
@@ -38,7 +38,6 @@ updates:
     multi-ecosystem-group: rust-compiler
     cooldown:
       default-days: 3
-    open-pull-requests-limit: 3
 
   - package-ecosystem: github-actions
     directory: /
