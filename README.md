@@ -14,7 +14,8 @@ The built-in DAO deployment identity and timing follow Yearn's current mainnet V
 
 ## Run
 
-Install the pinned Rust toolchain with rustup. Run these commands from the repository:
+Install the pinned Rust toolchain with rustup. Local validation also uses Python 3.11 or
+newer. Run these commands from the repository:
 
 ```sh
 scripts/validate
@@ -53,6 +54,11 @@ verification, a two-second timeout, and redirects disabled. Preview and test
 notifications send no Sentry events.
 
 ## Deployment
+
+Update `rust-toolchain.toml` and the digest-pinned Rust builder tag in `Dockerfile`
+in one pull request. Required CI rejects differing pins; the image build also
+verifies the actual compiler without downloading another toolchain. Debian
+runtime updates do not require a Rust change.
 
 CI validates pull requests. Main builds publish an image tagged with the full commit to GHCR. Production uses its immutable image digest. The build records the full commit
 in the Sentry release as `yearn-vote-notifications@<commit>`.
