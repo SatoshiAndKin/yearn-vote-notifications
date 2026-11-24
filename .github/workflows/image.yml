@@ -9,6 +9,10 @@ permissions:
   contents: read
 # GHA caches are ref-isolated: PRs may read the base cache, but releases never
 # import a PR cache. No registry credentials or package-write token on PRs.
+concurrency:
+  group: pr-ci-image.yml-${{ github.event_name }}-${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   premerge:
     if: github.event_name == 'pull_request'
