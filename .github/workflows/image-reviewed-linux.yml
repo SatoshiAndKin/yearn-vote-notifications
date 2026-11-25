@@ -35,7 +35,9 @@ jobs:
             -c 'test ! -e /app/.git && test ! -e /.git'
 
   publish:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: >-
+      github.repository == 'SatoshiAndKin/yearn-vote-notifications' &&
+      github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write
