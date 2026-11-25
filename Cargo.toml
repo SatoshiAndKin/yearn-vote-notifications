@@ -8,7 +8,7 @@ publish = false
 hickory-resolver = { version = "=0.26.3", default-features = false, features = ["tokio", "system-config"] }
 base64 = "=0.23.1"
 chrono = { version = "=0.4.45", default-features = false, features = ["clock", "serde"] }
-clap = { version = "=4.6.7", features = ["derive", "env"] }
+clap = { version = "=4.6.9", features = ["derive", "env"] }
 eyre = "=0.6.14"
 reqwest = { version = "=0.13.5", default-features = false, features = ["rustls"] }
 rusqlite = { version = "=0.43.0", features = ["bundled"] }
