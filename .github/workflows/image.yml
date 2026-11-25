@@ -18,4 +18,4 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: SatoshiAndKin/yearn-vote-notifications/.github/workflows/image-reviewed-linux.yml@05e3110abb6d5f5ad9775230782ef31ccdaaf039
+    uses: SatoshiAndKin/yearn-vote-notifications/.github/workflows/image-reviewed-linux.yml@f239b2a3d08f8f4c4196bc547a247fc00bde637c
