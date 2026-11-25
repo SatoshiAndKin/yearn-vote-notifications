@@ -1,0 +1,29 @@
+name: Reviewed Linux validation
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on:
+      group: ski-ci-public-linux
+      labels: ski-kvm-public-pr
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install the pinned Rust toolchain
+        shell: bash
+        run: |
+          installer="$RUNNER_TEMP/rustup-init"
+          curl --fail --silent --show-error --location --retry 2 \
+            https://static.rust-lang.org/rustup/archive/1.29.3/x86_64-unknown-linux-gnu/rustup-init \
+            --output "$installer"
+          printf '%s  %s\n' b1c8cb14e30889e7e2999e6b69e62d9e9b9ffc0f4df8180564d306d9680e6c55 "$installer" | sha256sum --check
+          chmod 0755 "$installer"
+          "$installer" --default-toolchain none --no-modify-path -y
+          cargo_bin="${CARGO_HOME:-$HOME/.cargo}/bin"
+          "$cargo_bin/rustup" toolchain install --no-self-update
+          echo "$cargo_bin" >> "$GITHUB_PATH"
+      - run: scripts/validate
