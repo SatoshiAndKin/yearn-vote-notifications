@@ -1,3 +1,5 @@
+mod sentry_dns;
+
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use clap::{Parser, Subcommand};
@@ -73,6 +75,7 @@ struct TimedSentryTransport(reqwest::Client);
 impl TimedSentryTransport {
     fn new(builder: reqwest::ClientBuilder) -> Result<Self, reqwest::Error> {
         builder
+            .dns_resolver(Arc::new(sentry_dns::SentryDns::default()))
             .timeout(SENTRY_TIMEOUT)
             .https_only(true)
             .tls_danger_accept_invalid_certs(false)
