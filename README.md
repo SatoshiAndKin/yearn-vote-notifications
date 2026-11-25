@@ -50,7 +50,9 @@ Inject `SENTRY_DSN` from a private CronJob secret to report failed runs to the
 `yearn-vote-notifications` project in Satoshi Kin Inc. Sentry receives a fixed
 error message, tracing location, and the release identity. Use the job logs
 for failure details. Requests use the configured HTTPS endpoint with certificate
-verification, a two-second timeout, and redirects disabled. Preview and test
+verification, a two-second timeout, and redirects disabled. Sentry uses a private
+asynchronous DNS resolver so unanswered lookups cannot hold SDK shutdown open.
+Normal source and notification clients keep their existing DNS behavior. Preview and test
 notifications send no Sentry events.
 
 ## Deployment
