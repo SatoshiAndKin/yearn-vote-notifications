@@ -1,0 +1,74 @@
+name: Reviewed Linux image
+on:
+  workflow_call:
+
+jobs:
+  premerge:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on:
+      group: ski-ci-public-linux
+      labels: ski-kvm-public-pr
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build the shipped runtime image (no publication)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          build-args: BUILD_REVISION=${{ github.sha }}
+          push: false
+          load: true
+          tags: yearn-vote-notifications:ci
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=yearn-image-amd64
+          cache-to: type=gha,scope=yearn-image-amd64,mode=max
+      - name: Verify runtime metadata and exclude Git history
+        run: |
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' yearn-vote-notifications:ci)" = "$GITHUB_SHA"
+          docker run --rm --network none --entrypoint sh yearn-vote-notifications:ci \
+            -c 'test ! -e /app/.git && test ! -e /.git'
+
+  publish:
+    if: >-
+      github.repository == 'SatoshiAndKin/yearn-vote-notifications' &&
+      github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    runs-on:
+      group: ski-ci-public-linux
+      labels: ski-kvm-public-pr
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          build-args: BUILD_REVISION=${{ github.sha }}
+          cache-from: |
+            type=gha,scope=yearn-image-amd64
+            type=registry,ref=ghcr.io/satoshiandkin/yearn-vote-notifications:buildcache
+          cache-to: |
+            type=gha,scope=yearn-image-amd64,mode=max
+            type=registry,ref=ghcr.io/satoshiandkin/yearn-vote-notifications:buildcache,mode=max
+          push: true
+          tags: ghcr.io/satoshiandkin/yearn-vote-notifications:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/SatoshiAndKin/yearn-vote-notifications
+            org.opencontainers.image.revision=${{ github.sha }}

@@ -9,58 +9,14 @@ on:
 
 permissions: {}
 
-env:
-  RENOVATE_IMAGE: docker.io/renovate/renovate:44.244.1@sha256:02d6fb4c2e667a70301c747949462e05a805b3c0f568810e6b654d5d2cce97e9
-
 concurrency:
   group: pr-ci-renovate.yml-${{ github.event_name }}-${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
-  validate-config:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Validate only the Renovate config
-        run: |
-          docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
-            --mount "type=bind,src=$PWD/renovate.json,dst=/fixture/renovate.json,readonly" \
-            --entrypoint renovate-config-validator "$RENOVATE_IMAGE" --strict /fixture/renovate.json
-
-  preview:
-    if: >-
-      github.event_name == 'workflow_dispatch' &&
-      github.repository == 'SatoshiAndKin/yearn-vote-notifications' &&
-      github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
+  renovate:
     permissions:
       contents: read
       issues: read
       pull-requests: read
-    steps:
-      - name: Preview Renovate changes without writing
-        env:
-          RENOVATE_TOKEN: ${{ github.token }}
-          RENOVATE_PLATFORM: github
-          RENOVATE_AUTODISCOVER: "false"
-          RENOVATE_REQUIRE_CONFIG: required
-          RENOVATE_ONBOARDING: "false"
-          RENOVATE_ALLOW_SCRIPTS: "false"
-          RENOVATE_ALLOW_PLUGINS: "false"
-          RENOVATE_ALLOWED_COMMANDS: '[]'
-          RENOVATE_EXIT_CODE_FOR_ERRORS: "true"
-          RENOVATE_DRY_RUN: full
-        run: |
-          docker run --rm --cap-drop ALL --security-opt no-new-privileges \
-            -e RENOVATE_TOKEN -e RENOVATE_PLATFORM -e RENOVATE_AUTODISCOVER \
-            -e RENOVATE_REQUIRE_CONFIG -e RENOVATE_ONBOARDING -e RENOVATE_ALLOW_SCRIPTS \
-            -e RENOVATE_ALLOW_PLUGINS -e RENOVATE_ALLOWED_COMMANDS \
-            -e RENOVATE_EXIT_CODE_FOR_ERRORS -e RENOVATE_DRY_RUN \
-            "$RENOVATE_IMAGE" "$GITHUB_REPOSITORY"
+    uses: SatoshiAndKin/yearn-vote-notifications/.github/workflows/renovate-reviewed-linux.yml@05e3110abb6d5f5ad9775230782ef31ccdaaf039
